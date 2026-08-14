@@ -4,7 +4,9 @@ Research code for training and evaluating prostate MRI models with mixed
 supervision from radiologist annotations (RA), targeted-biopsy regions (TBx),
 systematic-biopsy regions (SBx), and patient-level labels.
 
-![Method overview](docs/assets/methodology_example.svg)
+![Mixed-supervision framework](overleaf_figures/fig1_mixed_supervision_framework.png)
+
+![Annotation-specific supervision mapping](overleaf_figures/fig2_annotation_specific_supervision_mapping.png)
 
 ## Status
 
