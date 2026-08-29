@@ -57,6 +57,21 @@ ORIENTATION_HYPOTHESES = {
     "flip_yx": (1, 2),
     "flip_zyx": (0, 1, 2),
 }
+SOURCE_ALIASES = {
+    "radiologist": "PUB",
+    "pub": "PUB",
+    "promis": "PROMIS",
+    "tcia": "TCIA",
+}
+
+
+def _source_name(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in SOURCE_ALIASES:
+        return SOURCE_ALIASES[normalized]
+    raise argparse.ArgumentTypeError(
+        "expected one of: radiologist, promis, tcia"
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -79,9 +94,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--sources",
         nargs="+",
-        choices=("PUB", "PROMIS", "TCIA"),
-        default=("PUB", "PROMIS", "TCIA"),
-        help="Dataset sources to audit.",
+        type=_source_name,
+        metavar="{radiologist,promis,tcia}",
+        default=("radiologist", "promis", "tcia"),
+        help="Input cohorts to audit.",
     )
     parser.add_argument(
         "--max-shift",
@@ -154,7 +170,9 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Run a synthetic shift-direction test and exit.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.sources = tuple(_source_name(source) for source in args.sources)
+    return args
 
 
 def discover_cases(dataset_root: Path, sources: Sequence[str]) -> List[Path]:

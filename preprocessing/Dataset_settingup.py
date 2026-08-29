@@ -107,7 +107,7 @@ def create_unified_dataset(
     registry_data = []
     joint_tcia_groups = []
     print("\nDetected dataset layout:")
-    print(f"  PUB processed        : {src_pub or 'MISSING'}")
+    print(f"  Radiologist labels   : {src_pub or 'MISSING'}")
     print(f"  TCIA processed       : {src_tcia if os.path.isdir(src_tcia) else 'MISSING'}")
     print(f"  PROMIS MRI+labels    : {src_promis or 'MISSING'}")
     print(f"  PROMIS labels-only   : {src_promis_labels or 'MISSING'}")
@@ -220,8 +220,8 @@ def create_unified_dataset(
                 'has_target': 0, 'has_sys_12': 0, 'has_sys_20': 1, 'has_lesion': 0, 'has_gland': has_gland
             })
 
-    # --- 4. 整合 公开 MRI 数据集 (PUB) ---
-    print("\nProcessing PUB Radiologist Annotation Dataset...")
+    # --- 4. Integrate the user-provided dense radiologist annotations. ---
+    print("\nProcessing user-provided dense radiologist annotations...")
     if src_pub and os.path.exists(src_pub):
         pub_files = os.listdir(src_pub)
         image_suffix = '_img.npy'

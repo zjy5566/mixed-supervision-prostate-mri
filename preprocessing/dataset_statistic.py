@@ -24,7 +24,7 @@ def calculate_dataset_statistics(base_dir):
         p_dir = os.path.join(unified_dir, pid)
 
         # ==========================================
-        # 1. 统计 PUB 数据集 (Lesion vs Background 像素)
+        # 1. Dense radiologist annotations (lesion vs background pixels)
         # ==========================================
         if pid.startswith('PUB_'):
             lesion_path = os.path.join(p_dir, 'lesion_mask.npy')
@@ -73,12 +73,12 @@ def calculate_dataset_statistics(base_dir):
     print(" DATASET STATISTICS SUMMARY ".center(50, "="))
     print("="*50)
 
-    # 1. PUB 打印
+    # 1. Dense radiologist-annotation summary
     pub_lesion = stats['PUB']['lesion_pixels']
     pub_bg = stats['PUB']['background_pixels']
     if pub_bg > 0:
         pub_ratio = pub_lesion / pub_bg
-        print(f"\n[PUB Dataset] (Pixel-level)")
+        print(f"\n[Dense radiologist annotations] (Pixel-level)")
         print(f" - Lesion Pixels:     {pub_lesion:,}")
         print(f" - Background Pixels: {pub_bg:,}")
         print(f" - Ratio (Lesion:Bg): 1 : {pub_bg/pub_lesion:.2f}  (约 {pub_ratio:.4%})")

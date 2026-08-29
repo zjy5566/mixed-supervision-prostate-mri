@@ -288,7 +288,7 @@ def infer_dataset_type(batch: Dict, b: int) -> str:
 
 
 def compute_patient_label(batch: Dict, b: int, positive_threshold: int, invalid_sys_label: int) -> int:
-    """Biopsy-based patient label; PUB dense masks are lesion-Dice labels only."""
+    """Biopsy-based patient label; dense RA masks are lesion-Dice labels only."""
     has_target = batch.get("has_target", torch.zeros(1))[b].item() > 0
     has_sys = batch.get("has_sys", torch.zeros(1))[b].item() > 0
     if not (has_target or has_sys):

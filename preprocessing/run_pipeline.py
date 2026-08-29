@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the supported dataset preprocessing workflows from explicit paths.
 
-The pipeline never writes into the downloaded source directories. All
+The pipeline never writes into the source input directories. All
 intermediate, processed, unified, split, and QA artifacts are written below a
 separate workspace selected by the user.
 """
@@ -24,6 +24,17 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 DATASET_ORDER = ("pub", "promis", "tcia")
+DATASET_ALIASES = {
+    "radiologist": "pub",
+    "pub": "pub",
+    "promis": "promis",
+    "tcia": "tcia",
+}
+DATASET_DISPLAY_NAMES = {
+    "pub": "radiologist",
+    "promis": "promis",
+    "tcia": "tcia",
+}
 STAGE_ORDER = ("preprocess", "unify", "qa")
 SPLIT_MODES = ("auto", "experiment", "none")
 
@@ -55,7 +66,11 @@ class PipelineConfig:
 
     @property
     def pub_processed(self) -> Path:
-        return self.processed_root / "pub"
+        public_path = self.processed_root / "radiologist"
+        legacy_path = self.processed_root / "pub"
+        if not public_path.exists() and legacy_path.exists():
+            return legacy_path
+        return public_path
 
     @property
     def promis_processed(self) -> Path:
@@ -82,6 +97,16 @@ def _path(value: Optional[str]) -> Optional[Path]:
     return Path(value).expanduser().resolve() if value else None
 
 
+def _dataset_name(value: str) -> str:
+    """Map the public dataset selector to the existing internal schema key."""
+    normalized = value.strip().lower()
+    if normalized in DATASET_ALIASES:
+        return DATASET_ALIASES[normalized]
+    raise argparse.ArgumentTypeError(
+        "expected one of: radiologist, promis, tcia"
+    )
+
+
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -95,8 +120,9 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         "--datasets",
         nargs="+",
         required=True,
-        choices=DATASET_ORDER,
-        help="Datasets to preprocess and include.",
+        type=_dataset_name,
+        metavar="{radiologist,promis,tcia}",
+        help="Input cohorts to preprocess and include.",
     )
     parser.add_argument(
         "--stages",
@@ -107,8 +133,18 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--radiologist-root",
+        dest="pub_root",
+        metavar="RADIOLOGIST_ROOT",
+        help=(
+            "User-provided dense radiologist-annotation root containing "
+            "imagesTr, labelsTr, and zonesTr."
+        ),
+    )
+    parser.add_argument(
         "--pub-root",
-        help="PUB/RA root containing imagesTr, labelsTr, and zonesTr.",
+        dest="pub_root",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--promis-mri-root",
@@ -302,9 +338,9 @@ def _count_complete_pub_cases(root: Path) -> tuple[int, int]:
     labels = root / "labelsTr"
     zones = root / "zonesTr"
     for directory, label in (
-        (images, "PUB imagesTr"),
-        (labels, "PUB labelsTr"),
-        (zones, "PUB zonesTr"),
+        (images, "radiologist-annotation imagesTr"),
+        (labels, "radiologist-annotation labelsTr"),
+        (zones, "radiologist-annotation zonesTr"),
     ):
         _require_dir(directory, label)
 
@@ -327,10 +363,14 @@ def validate_pub_inputs(root: Path) -> str:
     discovered, complete = _count_complete_pub_cases(root)
     if complete == 0:
         raise PipelineError(
-            "PUB input has no complete case with T2/ADC/DWI, lesion label, "
+            "Radiologist-annotation input has no complete case with "
+            "T2/ADC/DWI, lesion label, "
             f"and zone mask under {root}."
         )
-    return f"PUB: {complete}/{discovered} discovered cases are complete"
+    return (
+        "radiologist annotations: "
+        f"{complete}/{discovered} discovered cases are complete"
+    )
 
 
 def validate_promis_inputs(mri_root: Path, biopsy_root: Path) -> str:
@@ -485,7 +525,11 @@ def validate_tcia_inputs(
 def validate_raw_inputs(config: PipelineConfig) -> list[str]:
     summaries = []
     if "pub" in config.datasets:
-        summaries.append(validate_pub_inputs(_require_dir(config.pub_root, "--pub-root")))
+        summaries.append(
+            validate_pub_inputs(
+                _require_dir(config.pub_root, "--radiologist-root")
+            )
+        )
     if "promis" in config.datasets:
         summaries.append(
             validate_promis_inputs(
@@ -612,10 +656,11 @@ def validate_processed_inputs(config: PipelineConfig) -> list[str]:
         )
         if count == 0:
             raise PipelineError(
-                "No complete processed PUB image/label/zone triplets found in "
+                "No complete processed radiologist-annotation "
+                "image/label/zone triplets found in "
                 f"{config.pub_processed}."
             )
-        summaries.append(f"processed PUB cases: {count}")
+        summaries.append(f"processed radiologist-annotation cases: {count}")
     if "promis" in config.datasets:
         count = _count_dirs_with(
             config.promis_processed,
@@ -660,7 +705,8 @@ def validate_processed_inputs(config: PipelineConfig) -> list[str]:
 def print_plan(config: PipelineConfig, summaries: Sequence[str]) -> None:
     print("Preprocessing plan")
     print(f"  workspace: {config.workspace}")
-    print(f"  datasets:  {', '.join(config.datasets)}")
+    display_datasets = [DATASET_DISPLAY_NAMES[name] for name in config.datasets]
+    print(f"  datasets:  {', '.join(display_datasets)}")
     print(f"  stages:    {', '.join(config.stages)}")
     print(f"  split mode: {config.split_mode}")
     if "qa" in config.stages:
@@ -671,7 +717,10 @@ def print_plan(config: PipelineConfig, summaries: Sequence[str]) -> None:
     step = 1
     if "preprocess" in config.stages:
         if "pub" in config.datasets:
-            print(f"  {step}. PUB MRI/label preprocessing -> {config.pub_processed}")
+            print(
+                f"  {step}. Radiologist-annotation MRI/label preprocessing "
+                f"-> {config.pub_processed}"
+            )
             step += 1
         if "promis" in config.datasets:
             print(f"  {step}. PROMIS MRI preprocessing -> {config.promis_processed}")
@@ -714,7 +763,8 @@ def run_pub(config: PipelineConfig) -> None:
     )
     if count == 0:
         raise PipelineError(
-            "PUB preprocessing produced no complete image/label/zone triplet."
+            "Radiologist-annotation preprocessing produced no complete "
+            "image/label/zone triplet."
         )
 
 
@@ -866,7 +916,7 @@ def run_qa(config: PipelineConfig) -> None:
         "--output-dir",
         str(config.qa_root),
         "--sources",
-        *(name.upper() for name in config.datasets),
+        *(DATASET_DISPLAY_NAMES[name] for name in config.datasets),
         "--workers",
         str(config.qa_workers),
         "--visuals",
@@ -916,7 +966,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         config.workspace.mkdir(parents=True, exist_ok=True)
         if "preprocess" in config.stages:
             if "pub" in config.datasets:
-                _execute_stage("PUB preprocessing", lambda: run_pub(config))
+                _execute_stage(
+                    "radiologist-annotation preprocessing",
+                    lambda: run_pub(config),
+                )
             if "promis" in config.datasets:
                 _execute_stage("PROMIS preprocessing", lambda: run_promis(config))
             if "tcia" in config.datasets:

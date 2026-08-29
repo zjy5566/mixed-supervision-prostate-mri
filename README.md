@@ -1,8 +1,8 @@
 # Mixed-Supervision Prostate MRI
 
 Research code for training and evaluating prostate MRI models with mixed
-supervision from radiologist annotations (RA), targeted-biopsy regions (TBx),
-systematic-biopsy regions (SBx), and patient-level labels.
+supervision from dense radiologist annotations (RA), targeted-biopsy regions
+(TBx), systematic-biopsy regions (SBx), and patient-level labels.
 
 ![Mixed-supervision framework](overleaf_figures/fig1_mixed_supervision_framework.png)
 
@@ -10,9 +10,8 @@ systematic-biopsy regions (SBx), and patient-level labels.
 
 ## Status
 
-This is a clean public-release candidate assembled from a private research
-workspace. It contains source code, tests, and two reviewed schematic assets.
-It intentionally excludes patient-level artifacts, datasets, checkpoints,
+This repository contains source code, tests, and reviewed schematic assets. It
+intentionally excludes patient-level artifacts, datasets, checkpoints,
 experiment outputs, private paths, papers, and third-party source trees.
 
 The software is research-only and is not a medical device. Do not use it for
@@ -32,7 +31,8 @@ clinical decisions.
 ├── preprocessing/             # First-party dataset preparation tools
 ├── tests/                     # Unit and specification tests
 ├── configs/                   # Public configuration examples
-└── docs/assets/               # Reviewed schematic figures only
+├── docs/assets/               # Additional reviewed schematic assets
+└── overleaf_figures/          # README framework figures
 ```
 
 ## Installation
@@ -52,28 +52,45 @@ large optional VTK dependency used by `preprocessing/TCIA_stl2mask.py`.
 
 ## Data and paths
 
-No medical data are distributed in this repository. Obtain each dataset from
-its official provider and comply with its license, citation, and data-use
-terms.
+No medical data are distributed, downloaded, or uploaded by this repository.
+The dense radiologist-annotation branch accepts a user-provided cohort that the
+user is authorized to process. TCIA and PROMIS data must be obtained from their
+official providers. In every case, users are responsible for the applicable
+license, consent or ethics approval, data-use agreement, de-identification, and
+institutional policy.
 
 Dataset preparation now has one path-independent entry point. Start with a
 preflight-only command and keep the generated workspace outside this Git
-repository and outside the downloaded source directories:
+repository and outside the source input directories:
 
 ```bash
 python preprocessing/run_pipeline.py \
   --workspace /absolute/path/to/rp-workspace \
-  --datasets pub \
-  --pub-root /absolute/path/to/PUB_ROOT \
+  --datasets radiologist \
+  --radiologist-root /absolute/path/to/RADIOLOGIST_ROOT \
   --split-mode none \
   --dry-run
 ```
 
-The adapters support the project's PUB/RA, PROMIS, and TCIA schemas; they do
-not accept arbitrary MRI downloads without schema conversion. In particular,
+For the user-provided dense radiologist annotations, arrange one
+de-identified case per patient in this schema:
+
+```text
+RADIOLOGIST_ROOT/
+├── imagesTr/
+│   ├── CASE_0000.nii.gz     # T2-weighted MRI
+│   ├── CASE_0001.nii.gz     # ADC map
+│   └── CASE_0002.nii.gz     # DWI
+├── labelsTr/
+│   └── CASE.nii.gz          # dense radiologist lesion mask
+└── zonesTr/
+    └── CASE.nii.gz          # non-empty prostate mask
+```
+
+The adapters do not accept arbitrary MRI downloads without schema conversion.
 PROMIS currently requires a separately generated 20-zone mask that is not
-redistributed here. Exact raw layouts, the enforced order of steps, all-source
-commands, split modes, and known limitations are documented in
+redistributed here. Exact input contracts, geometry requirements, processing
+order, split modes, and known limitations are documented in
 [`preprocessing/README.md`](preprocessing/README.md).
 
 After a unified workspace has been built, set the training paths with
@@ -106,15 +123,20 @@ See `scripts/README.md` for training, ablation, and frozen-evaluation commands.
 
 ## Reproducibility scope
 
-The first public candidate contains the canonical B0--B4 and N1--N5 experiment
-runners, TBx Dice and N4 method ablations, and the generic frozen-evaluation
-workflow. Historical, versioned, server-specific, and selected-case scripts are
-documented as exclusions in `MANIFEST.md`.
+The repository contains the canonical B0--B4 and N1--N5 experiment runners,
+TBx Dice and N4 method ablations, and the generic frozen-evaluation workflow.
+It supports reproduction of the code path and reuse with compatible,
+user-authorized inputs. Because the original dense radiologist-annotation
+cohort is not distributed, a user-provided cohort cannot be assumed to
+reproduce the original cohort composition, data distribution, or reported
+numerical results. Historical, versioned, server-specific, and selected-case
+scripts are documented as exclusions in `MANIFEST.md`.
 
 ## License and citation
 
 A software license has not yet been selected. Confirm code ownership with all
 relevant authors or institutions and add a `LICENSE` file before making the
 GitHub repository public. A `CITATION.cff` should be added when the preferred
-paper/preprint citation is final. Also confirm that both files in `docs/assets/`
-are first-party works or otherwise licensed for redistribution.
+paper/preprint citation is final. Also confirm that the files in `docs/assets/`
+and `overleaf_figures/` are first-party works or otherwise licensed for
+redistribution.

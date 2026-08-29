@@ -3,7 +3,7 @@ Training script for the current lesion-risk-map + MIL setting.
 
 Current training contract:
   - The model learns one voxel-level lesion risk map.
-  - Only lesion-related losses are logged: PUB dense lesion, TCIA TBx ROI,
+  - Only lesion-related losses are logged: dense radiologist lesion, TCIA TBx ROI,
     and SBx MIL.
   - TCIA TBx ROI loss follows Config.USE_TBX_POSITIVE_ONLY_LOSS; the current
     B-series default is sampled positive + sampled negative ROI BCE.

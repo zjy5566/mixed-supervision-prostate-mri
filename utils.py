@@ -1493,7 +1493,7 @@ class LesionMILEvaluator:
         for b in range(B):
             has_sys = bool(batch.get("has_sys", torch.zeros(B))[b].item() > 0)
             has_target = bool(batch.get("has_target", torch.zeros(B))[b].item() > 0)
-            # Patient-level GT is biopsy-based. PUB dense lesion masks are used
+            # Patient-level GT is biopsy-based. Dense radiologist masks are used
             # for lesion Dice only and must not enter patient BAcc/AUC.
             if not (has_sys or has_target):
                 continue
@@ -4348,7 +4348,7 @@ def validate(
 
         lesion_probs = torch.sigmoid(lesion_logits)
 
-        # Dense segmentation metrics only for PUB/radiologist-annotated cases.
+        # Dense segmentation metrics only for radiologist-annotated cases.
         if "has_lesion" in batch and batch["has_lesion"].sum() > 0:
             idx = batch["has_lesion"] > 0
             pred_bin = (lesion_probs[idx] >= prob_threshold).float()

@@ -77,10 +77,10 @@ class Config:
     #       N3_PUB_TCIA_SBX_ONLY = RA + SBx
     #       N4_MIXED              = RA + TBx + SBx
     #
-    # Every experiment uses the same unmasked PUB + TCIA internal evaluation
-    # cohorts and the same PROMIS external cohort. This allows all supervision
-    # combinations to report metrics on identical patient sets:
-    #   - lesion Dice on valid PUB dense-mask cases;
+    # Every experiment uses the same unmasked dense-RA + TCIA internal
+    # evaluation cohorts and the same PROMIS external cohort. This allows all
+    # supervision combinations to report metrics on identical patient sets:
+    #   - lesion Dice on valid dense radiologist-mask cases;
     #   - patient-level risk-map metrics from available segmentation masks;
     #   - region-level risk-map metrics from available masks and zone maps.
     #
@@ -257,8 +257,8 @@ class Config:
         TRAIN_CSV = os.path.join(
             SPLIT_DIR, "N1_radiologist_only_train.csv"
         )
-        # Train strictly on PUB cases with dense radiologist lesion masks.
-        # Keep common validation unfiltered across supervised PUB/TCIA cases
+        # Train strictly on cases with dense radiologist lesion masks.
+        # Keep common validation unfiltered across dense-RA/TCIA cases
         # so the run can still report comparison metrics.
         TASK = "mixed"
         DATASET_TASK = "mixed"
@@ -291,7 +291,7 @@ class Config:
         TRAIN_CSV = os.path.join(
             SPLIT_DIR, "N2_PUB_TCIA_TBx_only_train.csv"
         )
-        # The N2 training CSV contains PUB + TCIA TBx supervision.
+        # The N2 training CSV contains dense radiologist + TCIA TBx supervision.
         # TCIA SBx availability is hidden only in the training CSV.
         # The shared validation CSV keeps the original TBx and SBx labels.
         TASK = "mixed"
@@ -322,7 +322,7 @@ class Config:
         TRAIN_CSV = os.path.join(
             SPLIT_DIR, "N3_PUB_TCIA_SBx_only_train.csv"
         )
-        # The N3 training CSV contains PUB + TCIA SBx supervision.
+        # The N3 training CSV contains dense radiologist + TCIA SBx supervision.
         # TCIA TBx availability is hidden only in the training CSV.
         # The shared validation CSV keeps the original TBx and SBx labels.
         TASK = "mixed"
@@ -372,8 +372,8 @@ class Config:
         USE_CURRICULUM = True
 
         # Evidence-guided N4 default after N2/N3 sweeps:
-        # Epoch 1-14:  PUB dense only
-        # Epoch 15+:   PUB dense + TCIA TBx + TCIA SBx
+        # Epoch 1-14:  dense radiologist annotations only
+        # Epoch 15+:   dense radiologist annotations + TCIA TBx + TCIA SBx
         LESION_DENSE_START_EPOCH = 1
         LESION_SPARSE_START_EPOCH = 15
         LESION_SYS_START_EPOCH = 15

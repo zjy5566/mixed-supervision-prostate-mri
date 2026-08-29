@@ -12,14 +12,14 @@ Current experiment design:
     B3: expose both TCIA TBx-confirmed target ROIs and TCIA SBx supervision.
 
 Legacy/reference splits are also written:
-    N1: PUB radiologist annotations only.
-    N2: PUB + TCIA TBx supervision only.
-    N3: PUB + TCIA SBx supervision only.
-    N4: PUB + TCIA TBx and SBx mixed supervision.
+    N1: dense radiologist annotations only.
+    N2: dense radiologist annotations + TCIA TBx supervision only.
+    N3: dense radiologist annotations + TCIA SBx supervision only.
+    N4: dense radiologist annotations + TCIA TBx and SBx supervision.
 
 Training supervision differs across experiments. The B-series trains on TCIA,
-but uses the shared PUB + TCIA internal evaluation cohort so the baseline can
-report PUB lesion Dice alongside biopsy-based TCIA/PROMIS clinical metrics.
+but uses the shared dense-annotation + TCIA internal evaluation cohort so the
+baseline can report lesion Dice alongside biopsy-based TCIA/PROMIS metrics.
 
 PROMIS is held out as the external validation source for every experiment.
 """
@@ -216,7 +216,7 @@ def _prepare_registry(df: pd.DataFrame) -> pd.DataFrame:
 
     def supervision_type(row: pd.Series) -> str:
         if row["source"] == "PUB":
-            return "pub_radiologist_annotation"
+            return "dense_radiologist_annotation"
         if row["source"] == "TCIA":
             if row["can_tbx"] and row["can_sbx"]:
                 return "tbx_confirmed_roi_and_sbx"
@@ -272,7 +272,7 @@ def _concat_pub_tcia(
     pub_df: pd.DataFrame,
     tcia_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Combine PUB dense cases and selected TCIA supervision cases."""
+    """Combine dense-annotation cases and selected TCIA supervision cases."""
     return pd.concat(
         [
             pub_df[pub_df["can_seg"] == 1].copy(),
@@ -292,11 +292,12 @@ def create_split_csvs(
 ) -> Dict[str, pd.DataFrame]:
     """Create experiment CSV files from an existing registry CSV.
 
-    PUB and the full TCIA registry are each split once. Joint TBx/SBx
-    eligibility is then applied inside every TCIA partition so established
-    patient assignments remain stable. B-series training CSVs are TCIA-only;
-    legacy N-series CSVs keep the PUB + TCIA setup for backwards comparison.
-    PROMIS is never included in training, internal validation, or internal test.
+    The dense-annotation and full TCIA registries are each split once. Joint
+    TBx/SBx eligibility is then applied inside every TCIA partition so
+    established patient assignments remain stable. B-series training CSVs are
+    TCIA-only; legacy N-series CSVs keep the dense-annotation + TCIA setup for
+    comparison. PROMIS is never included in training, internal validation, or
+    internal test.
     """
     if not os.path.exists(registry_csv):
         raise FileNotFoundError(f"Registry CSV not found: {registry_csv}")
@@ -382,9 +383,9 @@ def create_split_csvs(
     # that every experiment can calculate:
     #   1) patient-level BACC on TCIA cases with can_cls == 1;
     #   2) region-level BACC on the subset with can_sbx == 1.
-    # PUB validation cases are also included so lesion Dice can still be
+    # Dense radiologist-annotation validation cases are also included so Dice can be
     # measured on the same run. Metric code must use has_target/has_sys or
-    # can_cls/can_sbx masks and must not treat PUB cases as negative biopsy
+    # can_cls/can_sbx masks and must not treat dense-annotation cases as negative biopsy
     # labels.
     tcia_common_internal_eval = tcia_internal_val.copy()
     tcia_common_internal_test = tcia_internal_test.copy()
@@ -418,16 +419,16 @@ def create_split_csvs(
     b3_external_val = promis_external.copy()
 
     # ------------------------------------------------------------------
-    # Legacy/reference N-series: older PUB-centred setup
+    # Legacy/reference N-series: dense radiologist-annotation setup
     # ------------------------------------------------------------------
-    # N1: train with PUB radiologist annotations only.
+    # N1: train with dense radiologist annotations only.
     n1_train = pub_train[pub_train["can_seg"] == 1].copy()
     n1_internal_val = common_internal_val.copy()
     n1_internal_test = common_internal_test.copy()
     # Supports patient/region evaluation, not external lesion Dice.
     n1_external_val = promis_external.copy()
 
-    # N2/N3/N4 use identical PUB and TCIA patients. SBx or TBx labels are hidden
+    # N2/N3/N4 use identical dense-annotation and TCIA patients. Labels are hidden
     # only in the corresponding training view.
     tcia_tbx_train = _make_tbx_only_view(tcia_train)
     n2_train = _concat_pub_tcia(pub_train, tcia_tbx_train)
@@ -435,14 +436,14 @@ def create_split_csvs(
     n2_internal_test = common_internal_test.copy()
     n2_external_val = promis_external.copy()
 
-    # N3: train with PUB + TCIA SBx supervision only.
+    # N3: train with dense radiologist annotations + TCIA SBx only.
     tcia_sbx_train = _make_sbx_only_view(tcia_train)
     n3_train = _concat_pub_tcia(pub_train, tcia_sbx_train)
     n3_internal_val = common_internal_val.copy()
     n3_internal_test = common_internal_test.copy()
     n3_external_val = promis_external.copy()
 
-    # N4: train with PUB + joint TBx/SBx TCIA supervision.
+    # N4: train with dense radiologist annotations + joint TCIA supervision.
     tcia_mixed_train = tcia_train.copy()
     n4_train = _concat_pub_tcia(pub_train, tcia_mixed_train)
     n4_internal_val = common_internal_val.copy()
@@ -498,19 +499,19 @@ def create_split_csvs(
         "N1_radiologist_only_internal_test.csv": n1_internal_test,
         "N1_PROMIS_external_val.csv": n1_external_val,
 
-        # N2: PUB + TCIA TBx only.
+        # N2: dense radiologist annotations + TCIA TBx only.
         "N2_PUB_TCIA_TBx_only_train.csv": n2_train,
         "N2_PUB_TCIA_TBx_only_internal_val.csv": n2_internal_val,
         "N2_PUB_TCIA_TBx_only_internal_test.csv": n2_internal_test,
         "N2_PROMIS_external_val.csv": n2_external_val,
 
-        # N3: PUB + TCIA SBx only.
+        # N3: dense radiologist annotations + TCIA SBx only.
         "N3_PUB_TCIA_SBx_only_train.csv": n3_train,
         "N3_PUB_TCIA_SBx_only_internal_val.csv": n3_internal_val,
         "N3_PUB_TCIA_SBx_only_internal_test.csv": n3_internal_test,
         "N3_PROMIS_external_val.csv": n3_external_val,
 
-        # N4: PUB + joint TBx/SBx TCIA biopsy supervision.
+        # N4: dense radiologist annotations + joint TCIA biopsy supervision.
         "N4_mixed_PUB_TCIA_train.csv": n4_train,
         "N4_mixed_PUB_TCIA_internal_val.csv": n4_internal_val,
         "N4_mixed_PUB_TCIA_internal_test.csv": n4_internal_test,

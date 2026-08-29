@@ -3,7 +3,7 @@ Loss functions for the new segmentation + MIL setting.
 
 This file removes the old grade/gland branches and keeps only lesion-related
 supervision:
-  1) lesion_dense  : dense radiologist lesion-mask supervision, e.g. PUB
+  1) lesion_dense  : dense radiologist lesion-mask supervision
   2) lesion_sparse : TCIA TBx-confirmed target ROI positive/negative BCE
   3) lesion_sys    : region-level MIL supervision from SBx zones, e.g. TCIA/PROMIS
   4) lesion_outside_gland : optional outside-prostate risk suppression
@@ -128,7 +128,7 @@ class MixedSupervisionLoss(nn.Module):
         outputs["region_valid_mask"]  : (B, max_zones), optional
 
     Expected batch dictionary from the revised dataset.py:
-        batch["lesion_mask"] : dense lesion mask for PUB cases
+        batch["lesion_mask"] : dense radiologist lesion mask
         batch["target_mask"] : TBx-confirmed radiologist target lesion ROI labels for TCIA cases
         batch["sys_labels"]  : SBx zone labels; invalid_sys_label means unsampled
         batch["gland_mask"]  : dense prostate gland mask, used only for optional outside-gland suppression
@@ -368,7 +368,7 @@ class MixedSupervisionLoss(nn.Module):
         lesion_mask: torch.Tensor,
         has_lesion: torch.Tensor,
     ) -> Tuple[torch.Tensor, bool]:
-        """PUB/radiologist dense lesion mask loss."""
+        """Dense radiologist lesion-mask loss."""
         valid_batch = has_lesion > 0
         if not (self.is_enabled("lesion_dense") and valid_batch.any()):
             return self._zero(lesion_logits.device), False

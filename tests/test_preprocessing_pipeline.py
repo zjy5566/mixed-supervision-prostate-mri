@@ -77,7 +77,50 @@ def test_pub_preflight_accepts_a_complete_layout_without_reading_images(tmp_path
 
     summary = validate_pub_inputs(pub_root)
 
-    assert summary == "PUB: 1/1 discovered cases are complete"
+    assert summary == (
+        "radiologist annotations: 1/1 discovered cases are complete"
+    )
+
+
+def test_public_radiologist_cli_maps_to_the_existing_internal_schema(tmp_path):
+    radiologist_root = tmp_path / "radiologist_raw"
+    _make_complete_pub_raw_layout(radiologist_root)
+
+    args = parse_args(
+        [
+            "--workspace",
+            str(tmp_path / "workspace"),
+            "--datasets",
+            "radiologist",
+            "--radiologist-root",
+            str(radiologist_root),
+        ]
+    )
+    config = build_config(args)
+
+    assert config.datasets == ("pub",)
+    assert config.pub_root == radiologist_root.resolve()
+    assert config.pub_processed == (
+        tmp_path / "workspace" / "processed" / "radiologist"
+    ).resolve()
+
+
+def test_existing_legacy_processed_directory_remains_readable(tmp_path):
+    args = parse_args(
+        [
+            "--workspace",
+            str(tmp_path / "workspace"),
+            "--datasets",
+            "radiologist",
+            "--stages",
+            "unify",
+        ]
+    )
+    config = build_config(args)
+    legacy_processed = config.processed_root / "pub"
+    legacy_processed.mkdir(parents=True)
+
+    assert config.pub_processed == legacy_processed
 
 
 def test_promis_preflight_accepts_complete_mri_and_biopsy_layout(tmp_path):

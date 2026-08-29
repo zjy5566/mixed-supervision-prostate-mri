@@ -1,8 +1,8 @@
 # Dataset preprocessing
 
-`run_pipeline.py` is the supported public entry point for dataset preparation.
-It replaces workstation-specific paths with explicit command-line arguments and
-runs each source-specific step in the required order.
+`run_pipeline.py` is the supported public entry point for data preparation. It
+replaces workstation-specific paths with explicit command-line arguments and
+runs each input-specific step in the required order.
 
 The pipeline is an adapter for the three schemas used by this project. It is
 not a generic converter for arbitrary prostate MRI datasets, and it does not
@@ -14,9 +14,10 @@ Confirmed source records:
 - [TCIA Prostate-MRI-US-Biopsy collection](https://www.cancerimagingarchive.net/collection/prostate-mri-us-biopsy/)
 - [PROMIS derived dataset record](https://doi.org/10.5281/zenodo.15683922)
 
-The source referred to as `PUB` or `RA` in this project still needs a verified
-public download record and license from the maintainers; the repository does
-not infer one from its internal name.
+Dense radiologist annotations are a user-provided input, not a named dataset
+distributed or recommended by this repository. Users must prepare their own
+authorized, de-identified MRI cohort according to the schema below. The
+pipeline processes local paths and does not upload source or derived data.
 
 ## Install
 
@@ -38,23 +39,20 @@ uses openpyxl.
 The default stages are `preprocess` followed by `unify`:
 
 ```text
-PUB     NIfTI volumes -> resample/crop/normalize -> NPY files
-PROMIS  NIfTI volumes -> resample/register/crop -> biopsy CSV conversion
-TCIA    DICOM extraction -> STL masks -> biopsy labels -> resample/crop
-all     processed cases -> Unified_Dataset -> registry -> eligible splits
+Radiologist annotations  NIfTI -> resample/crop/normalize -> NPY files
+PROMIS                   NIfTI -> register/crop -> biopsy CSV conversion
+TCIA                     DICOM -> STL masks -> biopsy labels -> crop/tensor
+all                      processed cases -> registry -> eligible splits
 ```
 
-Use a separate workspace outside both the Git repository and the downloaded
-source directories. The pipeline never deletes source data and refuses a
+Use a separate workspace outside both the Git repository and the source input
+directories. The pipeline never deletes source data and refuses a
 workspace that overlaps a raw input directory.
 
 ```text
 WORKSPACE/
 ├── intermediate/tcia_extracted/
-├── processed/
-│   ├── pub/
-│   ├── promis/
-│   └── tcia/
+├── processed/<selected-source>/
 ├── Unified_Dataset/
 │   └── splits/dataset_registry.csv
 └── qa/input_alignment/
@@ -63,33 +61,55 @@ WORKSPACE/
 Always run `--dry-run` first. It validates the path layout and required table
 columns without writing files.
 
-## PUB/RA input
+## User-provided dense radiologist annotations
 
-The PUB/RA adapter expects an already aligned nnU-Net-like NIfTI layout:
+This input has no repository-provided download source. Prepare an authorized,
+de-identified cohort in the following nnU-Net-like NIfTI layout. `CASE` must be
+a pseudonymous identifier, never a name, medical record number, date of birth,
+or another direct identifier. Use one `CASE` per patient; keep any re-linking
+key outside both the repository and processing workspace.
 
 ```text
-PUB_ROOT/
+RADIOLOGIST_ROOT/
 ├── imagesTr/
-│   ├── CASE_0000.nii.gz     # T2
-│   ├── CASE_0001.nii.gz     # ADC
-│   └── CASE_0002.nii.gz     # DWI
+│   ├── CASE_0000.nii.gz     # single-channel 3D T2-weighted MRI
+│   ├── CASE_0001.nii.gz     # single-channel 3D ADC map
+│   └── CASE_0002.nii.gz     # single-channel 3D DWI
 ├── labelsTr/
-│   └── CASE.nii.gz          # lesion annotation
+│   └── CASE.nii.gz          # dense 3D radiologist lesion mask
 └── zonesTr/
-    └── CASE.nii.gz          # prostate/zone mask used for cropping
+    └── CASE.nii.gz          # non-empty 3D prostate mask
 ```
 
-The code does not register PUB modalities. T2, ADC, DWI, lesion, and zone files
-must already describe the same anatomy in compatible physical coordinates.
-The public provenance, download instructions, and redistribution license for
-the dataset called `PUB` in the research workspace are not established here;
-users must supply a lawfully obtained dataset in this exact schema.
+For each case, all five files must cover the same anatomy and already be
+registered in compatible physical space, including size, spacing, origin,
+direction/orientation, and physical extent. This adapter does not perform
+inter-modal registration. The DWI series and ADC map must also be semantically
+appropriate for the intended study; matching filenames alone do not establish
+scientific comparability.
+
+`labelsTr` is treated as a dense radiologist lesion annotation. Every value
+greater than zero is converted to foreground. An empty mask should mean an
+explicitly reviewed negative case, not a missing annotation. `zonesTr` uses
+zero for background and a non-zero prostate foreground; it must not be empty,
+because it defines the crop centre and foreground normalization region.
+
+The adapter resamples to `(1.0, 1.0, 2.24)` mm, crops to `(64, 64, 32)` in
+SimpleITK `(x, y, z)` order, and writes `input_tensor.npy` as
+`(C, D, H, W) = (3, 32, 64, 64)` with channels `T2, DWI, ADC`. Images use
+linear interpolation and masks use nearest-neighbour interpolation. NPY files
+do not retain NIfTI geometry metadata.
+
+The preflight command verifies paths and matching filenames only. It does not
+read NIfTI headers, prove registration, validate annotation quality, or confirm
+that the acquisition protocol matches the original research cohort. Review
+geometry and generated QA outputs before training.
 
 ```bash
 python preprocessing/run_pipeline.py \
   --workspace /absolute/path/to/rp-workspace \
-  --datasets pub \
-  --pub-root /absolute/path/to/PUB_ROOT \
+  --datasets radiologist \
+  --radiologist-root /absolute/path/to/RADIOLOGIST_ROOT \
   --split-mode none \
   --dry-run
 ```
@@ -191,8 +211,8 @@ order and builds the unified dataset:
 ```bash
 python preprocessing/run_pipeline.py \
   --workspace /absolute/path/to/rp-workspace \
-  --datasets pub promis tcia \
-  --pub-root /absolute/path/to/PUB_ROOT \
+  --datasets radiologist promis tcia \
+  --radiologist-root /absolute/path/to/RADIOLOGIST_ROOT \
   --promis-mri-root /absolute/path/to/PROMIS_MRI_ROOT \
   --promis-biopsy-root /absolute/path/to/PROMIS_BIOPSY_ROOT \
   --tcia-dicom-root /absolute/path/to/TCIA_DICOM_ROOT \
@@ -229,7 +249,10 @@ modes are:
 
 The full B/N experiments require more than successful image preprocessing.
 They depend on the original supervision combination, including joint TCIA
-TBx+SBx cases; PROMIS is held out as external validation.
+TBx+SBx cases; PROMIS is held out as external validation. A user-provided
+radiologist-annotation cohort may satisfy the software schema, but it does not
+recreate the original cohort composition, scan protocol, annotation process,
+or numerical results.
 
 ## Alignment QA
 
@@ -238,7 +261,7 @@ After unification, run the read-only multimodal alignment audit:
 ```bash
 python preprocessing/run_pipeline.py \
   --workspace /absolute/path/to/rp-workspace \
-  --datasets pub promis tcia \
+  --datasets radiologist promis tcia \
   --stages qa \
   --qa-workers 4 \
   --qa-visuals suspect
@@ -273,7 +296,10 @@ export RP_EXP_DIR=/absolute/path/to/experiment-outputs
 python scripts/run_b_experiments.py --experiment b1 --dry-run
 ```
 
-Always comply with each source dataset's license, citation requirements,
-consent/ethics terms, and institutional data-governance policy. Treat raw and
-derived clinical tables, registry CSVs, split CSVs, logs, masks, and case
-figures as research data rather than source code.
+Users are responsible for confirming that they are permitted to access,
+process, train on, and retain every input under the applicable license,
+data-use agreement, consent or ethics approval, and institutional policy.
+Treat raw and derived NIfTI/NPY files, clinical tables, registry CSVs, split
+CSVs, logs, masks, and case figures as research data rather than source code;
+do not commit them to Git or redistribute them merely because direct
+identifiers were removed.
