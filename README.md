@@ -131,12 +131,3 @@ cohort is not distributed, a user-provided cohort cannot be assumed to
 reproduce the original cohort composition, data distribution, or reported
 numerical results. Historical, versioned, server-specific, and selected-case
 scripts are documented as exclusions in `MANIFEST.md`.
-
-## License and citation
-
-A software license has not yet been selected. Confirm code ownership with all
-relevant authors or institutions and add a `LICENSE` file before making the
-GitHub repository public. A `CITATION.cff` should be added when the preferred
-paper/preprint citation is final. Also confirm that the files in `docs/assets/`
-and `overleaf_figures/` are first-party works or otherwise licensed for
-redistribution.
