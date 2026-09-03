@@ -1,8 +1,12 @@
-# Mixed-Supervision Prostate MRI
+# Mixed-Supervision Prostate MRI Cancer Detection and Localization
 
-Research code for training and evaluating prostate MRI models with mixed
-supervision from dense radiologist annotations (RA), targeted-biopsy regions
-(TBx), systematic-biopsy regions (SBx), and patient-level labels.
+A 3D research pipeline for detecting and localizing clinically significant
+prostate cancer (csPCa) in prostate MRI. The model learns a single voxel-level
+lesion-risk map from dense radiologist annotations (RA), targeted-biopsy
+regions (TBx), systematic-biopsy regions (SBx), and optional patient-level
+labels. That shared map supports voxel- and lesion-level localization as well
+as region- and patient-level cancer detection. This is a research
+implementation, not a clinical diagnosis system.
 
 ![Mixed-supervision framework](overleaf_figures/fig1_mixed_supervision_framework.png)
 
@@ -97,7 +101,7 @@ After a unified workspace has been built, set the training paths with
 environment variables or command-line options:
 
 ```bash
-export RP_PROJECT_ROOT=/path/to/mixed-supervision-prostate-mri
+export RP_PROJECT_ROOT=/path/to/prostate-mri-cancer-detection-and-localization
 export RP_DATASET_ROOT=/absolute/path/to/rp-workspace
 export RP_EXP_DIR=/path/to/experiment-outputs
 ```

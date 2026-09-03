@@ -1,4 +1,4 @@
 # Copy these values into your shell profile or job script.
-RP_PROJECT_ROOT=/path/to/mixed-supervision-prostate-mri
+RP_PROJECT_ROOT=/path/to/prostate-mri-cancer-detection-and-localization
 RP_DATASET_ROOT=/path/to/datasets
 RP_EXP_DIR=/path/to/experiment-outputs
